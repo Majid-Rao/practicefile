@@ -3,18 +3,26 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/User/userModel.js";
 import UploadCloudinary from "../utils/FileUpload.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-const generateAccessandRefreshTokens = async(userId) =>{
-  try {
-    const user = await User.findById(userId);
-    const AccessTokens = user.generateAccessToken();
-    const RefreshTokens = user.generateRefreshToken();
-    user.refreshToken = RefreshTokens;
-    await user.save({validateBeforeSave : false});
-    return {AccessTokens,RefreshTokens}
-  } catch (error) {
-    console.log(error,"error in generateAccessandRefreshTokens");
+// const generateAccessandRefreshTokens = async(userId) =>{
+//   try {
+//     const user = await User.findById(userId);
+//     const AccessTokens = user.generateAccessToken();
+//     const RefreshTokens = user.generateRefreshToken();
+//     user.refreshToken = RefreshTokens;
+//     await user.save({validateBeforeSave : false});
+//     return {AccessTokens,RefreshTokens}
+//   } catch (error) {
+//     console.log(error,"error in generateAccessandRefreshTokens");
     
-  }
+//   }
+// }
+const generateAccessandRefreshTokens = async(userId) => {
+const user = await User.findById(userId);
+const AccessToken = user.generateAccessToken();
+const RefreshToken = user.generateRefreshToken();
+user.refreshToken = RefreshToken;
+user.save({validBeforeSave: false});
+return {AccessToken,RefreshToken};
 }
 const userRegister = asyncHandler(async (req, res) => {
 
@@ -58,6 +66,12 @@ const userRegister = asyncHandler(async (req, res) => {
   );
 });
 const loginUser = asyncHandler(async(req,res)=>{
+  // req body 
+  // validate fields
+  // user already exist
+  // password check
+  // generate access and refresh tokens
+  // cookies
 const {username,email,password} = req.body;
 if(!username || !email ){
   throw new ApiError(400,"username or email is required");
@@ -75,7 +89,7 @@ const options = {
   httpOnly : true,
   secure : true
 }
-return res.status(200).cookie("AccessTokens",AccessTokens,options).
+return res.status(201).cookie("AccessTokens",AccessTokens,options).
 cookie("RefreshTokens",RefreshTokens,options).json(
  new ApiResponse (
   200,
@@ -85,7 +99,59 @@ cookie("RefreshTokens",RefreshTokens,options).json(
 
 )
 })
+// const loginUser = asyncHandler(async(req,res)=>{
+//   // req body 
+//   // validate fields
+//   // user already exist
+//   // password check
+//   // generate access and refresh tokens
+//   // cookies
+
+//   const {username,email,password} = req.body;
+//   if(!username || !email){
+//     throw new ApiError(400,"username or email is empty");
+//   }
+//   const exist = await User.findOne({email});
+//   if(!exist){
+//     throw new ApiError(401,"user not exist");
+//   }
+//   const Passwordcheck = await exist.isPasswordCorrect(password);
+//   if(!Passwordcheck){ throw new ApiError(401,"Password Incorrect");
+//   }
+//   const {AccessToken,RefreshToken} = await generateAccessandRefreshTokens(exist._id);
+//   const LoggedInuser = await User.findById(exist._id).select("-password -refreshToken");
+//   const options = {
+//     httpOnly : true,
+//     secure : true, 
+//   } // cookie it can't change from frontend only change from server
+//   res.status(201).cookie("AccessToken",AccessToken,options).
+//   cookie("RefreshToken",RefreshToken,options).json(
+//    new ApiResponse =( 200,
+//     {
+//       exist: LoggedInuser,AccessToken,RefreshToken
+//     },
+//     "User LoggedIn!"
+//   )
+//   )
+// })
 const loggedOut = asyncHandler(async(req,res)=>{
-  
+  // authmiddleware 
+  // accesstoken from cookies or header
+  // verify accesstoken
+  await User.findByIdAndUpdate(
+     req.user._id,
+     {
+      $set: {refreshToken : undefined},
+     },
+     {
+      new : true
+     } 
+  );
+  const options = {
+  httpOnly : true,
+  secure : true
+}
+  res.status(200).clearCookie("AccessTokens",options).clearCookie("RefreshTokens",options)
+  .json(new ApiResponse(200,"logged out!"));
 })
 export { loggedOut,loginUser,userRegister };
